@@ -2,7 +2,8 @@
 
 const axios = require('axios');
 
-const feeds = ['https://expressen.se/rss/nyheter',
+const feeds = [
+'https://expressen.se/rss/nyheter',
 'https://gt.se/rss/nyheter',
 'https://kvp.se/rss/nyheter',
 'https://expressen.se/rss/sport',
@@ -24,26 +25,20 @@ let parser = new Parser();
 const express = require('express')
 
 const app = express()
-
 const port = 3000;
 
 app.get('/', async (req, res) => {
 
-  let allItems = [];
-
-  allItems = feeds.map(feed => parser.parseURL(feed));
-
-  console.log(await Promise.allSettled(allItems)).filter(item=> !!item).flatMap(item => item.items)
+  const feedRequests = feeds.map(feed => parser.parseURL(feed));
+  const feedResults = await Promise.allSettled(feedRequests);  
   
-  
-  
-  allItems = (await Promise.finally(allItems)).filter(item=> !!item).flatMap(item => item.items)
-  
-
-
+  feedItems = feedResults
+    .filter(item => item.status === 'fulfilled')
+    .map(item => item.value)
+    .flatMap(item => item.items)
 
   const guids = [];
-  const filteredItems = allItems.reduce((acc, value) => {
+  const filteredItems = feedItems.reduce((acc, value) => {
     if (!guids.includes(value.guid)) {
       guids.push(value.guid);
       acc.push(value)
@@ -55,8 +50,7 @@ app.get('/', async (req, res) => {
     return (a.isoDate > b.isoDate) ? -1 : ((a.isoDate < b.isoDate) ? 1 : 0)
   })
 
-
-  const listItems = filteredItems.slice(0,10).map(filteredItem => {
+  const listItems = filteredItems.slice(0, 10).map(filteredItem => {
     const listItem = `
     <li>
       <a href = "${filteredItem.link}">${filteredItem.title}</a>    
@@ -68,11 +62,11 @@ app.get('/', async (req, res) => {
   const htmlReply = `
   <!DOCTYPE html>
   <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-  </head>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Document</title>
+    </head>
   <body>
 
   <ul>
@@ -82,8 +76,6 @@ app.get('/', async (req, res) => {
   </body>
   </html>  
   `
-
-  console.log(htmlReply)
   res.send(htmlReply);
 })
 
